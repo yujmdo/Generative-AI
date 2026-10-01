@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitCal - 칼로리 & 탄단지 계산기</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --text: #1c2230;
+    --muted: #6b7385;
+    --line: #e3e6ec;
+    --accent: #ff5a36;
+    --accent-soft: #fff0ec;
+    --carb: #f5a524;
+    --protein: #e5484d;
+    --fat: #3b82f6;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151c;
+      --card: #1b1f29;
+      --text: #eef0f5;
+      --muted: #9aa2b5;
+      --line: #2b3140;
+      --accent: #ff6b47;
+      --accent-soft: #2d1d19;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 16px 64px; }
+  header { padding: 40px 0 24px; }
+  header h1 { margin: 0; font-size: 28px; letter-spacing: -0.5px; }
+  header h1 span { color: var(--accent); }
+  header p { margin: 6px 0 0; color: var(--muted); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px;
+    margin-bottom: 18px;
+  }
+  .card h2 { margin: 0 0 14px; font-size: 18px; }
+  .step { color: var(--accent); font-weight: 700; margin-right: 6px; }
+
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  label.field { display: block; font-size: 14px; color: var(--muted); }
+  label.field b { color: var(--text); font-weight: 600; }
+  input[type=number], select {
+    width: 100%;
+    margin-top: 4px;
+    padding: 11px 12px;
+    font-size: 16px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+  .seg { display: flex; gap: 8px; margin-top: 4px; }
+  .seg input { display: none; }
+  .seg label {
+    flex: 1; text-align: center; padding: 10px 0; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+    font-size: 15px; color: var(--text);
+  }
+  .seg input:checked + label { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chips input { display: none; }
+  .chips label {
+    min-width: 46px; text-align: center; padding: 8px 12px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 14px;
+  }
+  .chips input:checked + label { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+  .goals { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 6px; }
+  @media (max-width: 560px) { .goals { grid-template-columns: 1fr; } }
+  .goals input { display: none; }
+  .goals label {
+    display: block; cursor: pointer; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--bg);
+  }
+  .goals label strong { display: block; font-size: 15px; }
+  .goals label small { color: var(--muted); font-size: 12px; }
+  .goals input:checked + label { border-color: var(--accent); background: var(--accent-soft); outline: 1px solid var(--accent); }
+
+  button.primary {
+    width: 100%; margin-top: 8px; padding: 14px; font-size: 17px; font-weight: 700;
+    color: #fff; background: var(--accent); border: 0; border-radius: 12px; cursor: pointer;
+  }
+  button.primary:hover { filter: brightness(1.06); }
+  .error { color: var(--protein); font-size: 14px; margin-top: 10px; display: none; }
+
+  #results { display: none; }
+
+  .top-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 560px) { .top-stats { grid-template-columns: 1fr; } }
+  .stat { background: var(--bg); border-radius: 12px; padding: 14px; }
+  .stat .k { font-size: 13px; color: var(--muted); }
+  .stat .v { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .stat .v small { font-size: 14px; font-weight: 500; color: var(--muted); }
+  .stat .d { font-size: 12px; color: var(--muted); }
+
+  .plans { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (max-width: 560px) { .plans { grid-template-columns: 1fr; } }
+  .plan {
+    text-align: left; font: inherit; color: inherit; cursor: pointer;
+    padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg);
+  }
+  .plan.active { border-color: var(--accent); background: var(--accent-soft); outline: 1px solid var(--accent); }
+  .plan .n { font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; }
+  .plan .badge { font-size: 11px; background: var(--accent); color: #fff; padding: 1px 8px; border-radius: 999px; }
+  .plan .c { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+  .plan .c small { font-size: 14px; font-weight: 500; color: var(--muted); }
+  .plan .diff { font-size: 12px; color: var(--muted); }
+  .plan .mini { margin-top: 6px; font-size: 13px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 3px; }
+
+  .macro-wrap { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  .donut {
+    width: 170px; height: 170px; border-radius: 50%; flex: none; position: relative;
+  }
+  .donut::after {
+    content: ""; position: absolute; inset: 28px; background: var(--card); border-radius: 50%;
+  }
+  .donut-center {
+    position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+  }
+  .donut-center b { font-size: 24px; line-height: 1.1; }
+  .donut-center span { font-size: 12px; color: var(--muted); }
+  .macro-list { flex: 1; min-width: 240px; }
+  .macro-row { margin-bottom: 12px; }
+  .macro-row .top { display: flex; justify-content: space-between; font-size: 15px; }
+  .macro-row .bar { height: 8px; background: var(--bg); border-radius: 99px; overflow: hidden; margin-top: 4px; }
+  .macro-row .bar i { display: block; height: 100%; border-radius: 99px; }
+  .macro-row .sub { font-size: 12px; color: var(--muted); }
+
+  .meals { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 14px; }
+  .meals th, .meals td { padding: 8px 6px; text-align: right; border-bottom: 1px solid var(--line); }
+  .meals th:first-child, .meals td:first-child { text-align: left; }
+  .meals th { color: var(--muted); font-weight: 500; font-size: 13px; }
+
+  .reco h3 { margin: 18px 0 6px; font-size: 15px; }
+  .reco h3:first-child { margin-top: 0; }
+  .reco ul { margin: 0; padding-left: 18px; }
+  .reco li { margin-bottom: 4px; font-size: 14.5px; }
+  .tag { display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; margin-bottom: 8px; }
+  .warn { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 10px 12px; border-radius: 6px; font-size: 14px; margin-top: 12px; }
+
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 28px; }
+  footer .author { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14px; font-weight: 600; color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Fit<span>Cal</span></h1>
+    <p>기초대사량 · 목표별 칼로리 · 탄단지 · 운동 방향까지 한 번에</p>
+  </header>
+
+  <form id="form" class="card" novalidate>
+    <h2><span class="step">1</span>기본 정보</h2>
+    <div class="grid">
+      <div>
+        <label class="field"><b>성별</b></label>
+        <div class="seg">
+          <input type="radio" name="sex" id="sexM" value="male" checked><label for="sexM">남성</label>
+          <input type="radio" name="sex" id="sexF" value="female"><label for="sexF">여성</label>
+        </div>
+      </div>
+      <label class="field"><b>나이</b> (만)
+        <input type="number" id="age" min="14" max="90" placeholder="예: 25" inputmode="numeric">
+      </label>
+      <label class="field"><b>키</b> (cm)
+        <input type="number" id="height" min="120" max="230" placeholder="예: 175" inputmode="decimal">
+      </label>
+      <label class="field"><b>체중</b> (kg)
+        <input type="number" id="weight" min="30" max="250" step="0.1" placeholder="예: 70" inputmode="decimal">
+      </label>
+      <label class="field"><b>체지방률</b> (%, 선택)
+        <input type="number" id="bf" min="3" max="60" step="0.1" placeholder="모르면 비워두세요" inputmode="decimal">
+        <span class="hint">입력하면 더 정확한 Katch-McArdle 공식을 사용해요.</span>
+      </label>
+      <label class="field"><b>평소 일상 활동량</b> (운동 제외)
+        <select id="neat">
+          <option value="1.2">거의 앉아서 생활 (사무직·학생)</option>
+          <option value="1.3" selected>보통 (가끔 걷고 이동이 있음)</option>
+          <option value="1.4">많이 움직임 (서비스직·현장직)</option>
+        </select>
+      </label>
+    </div>
+
+    <h2 style="margin-top:26px"><span class="step">2</span>현재 운동량</h2>
+    <div class="grid">
+      <div>
+        <label class="field"><b>웨이트</b> 주 몇 번?</label>
+        <div class="chips" id="weightChips"></div>
+      </div>
+      <div>
+        <label class="field"><b>유산소</b> 주 몇 번?</label>
+        <div class="chips" id="cardioChips"></div>
+      </div>
+    </div>
+    <div class="hint" style="margin-top:8px">웨이트 1회 약 60분, 유산소 1회 약 40분 기준으로 소모 칼로리를 계산합니다.</div>
+
+    <h2 style="margin-top:26px"><span class="step">3</span>목표</h2>
+    <div class="goals">
+      <input type="radio" name="goal" id="gAuto" value="auto" checked>
+      <label for="gAuto"><strong>🤖 잘 모르겠어요 (자동 추천)</strong><small>체형과 운동량을 보고 목표를 골라드려요</small></label>
+      <input type="radio" name="goal" id="gDiet" value="diet">
+      <label for="gDiet"><strong>🔥 다이어트</strong><small>체지방 감량, 근손실 최소화</small></label>
+      <input type="radio" name="goal" id="gMaint" value="maintain">
+      <label for="gMaint"><strong>⚖️ 체중 유지</strong><small>지금 몸을 유지하며 퍼포먼스 향상</small></label>
+      <input type="radio" name="goal" id="gLean" value="lean">
+      <label for="gLean"><strong>💪 린매스업</strong><small>체지방 최소로 천천히 근육 증가</small></label>
+      <input type="radio" name="goal" id="gBulk" value="bulk">
+      <label for="gBulk"><strong>🏋️ 벌크업</strong><small>빠른 체중·근육 증가 (체지방 일부 감수)</small></label>
+    </div>
+
+    <button type="submit" class="primary">계산하기</button>
+    <div class="error" id="err"></div>
+  </form>
+
+  <div id="results">
+    <section class="card">
+      <h2>내 기본 수치</h2>
+      <div class="top-stats">
+        <div class="stat"><div class="k">기초대사량 (BMR)</div><div class="v" id="rBmr"></div><div class="d" id="rBmrDesc"></div></div>
+        <div class="stat"><div class="k">활동대사량 (TDEE)</div><div class="v" id="rTdee"></div><div class="d" id="rTdeeDesc"></div></div>
+        <div class="stat"><div class="k">BMI</div><div class="v" id="rBmi"></div><div class="d" id="rBmiDesc"></div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>목표별 하루 칼로리 <span style="font-size:13px;color:var(--muted);font-weight:400">· 카드를 누르면 상세 플랜이 바뀌어요</span></h2>
+      <div class="plans" id="plans"></div>
+    </section>
+
+    <section class="card">
+      <h2 id="macroTitle">탄단지 비율</h2>
+      <div class="macro-wrap">
+        <div class="donut" id="donut"><div class="donut-center"><b id="dKcal"></b><span>kcal / 일</span></div></div>
+        <div class="macro-list" id="macroList"></div>
+      </div>
+      <table class="meals" id="meals"></table>
+    </section>
+
+    <section class="card reco" id="reco"></section>
+  </div>
+
+  <footer>
+    Mifflin-St Jeor / Katch-McArdle 공식 기반 추정치이며 개인차가 있습니다. 2~3주간 체중 변화를 보고 ±100~200kcal씩 조정하세요.<br>
+    질환이 있거나 임신·수유 중이라면 전문가와 상담하세요.
+    <div class="author">202211857 / 최중범</div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+
+  // 운동 횟수 칩 생성
+  function buildChips(container, name, max, def) {
+    for (let i = 0; i <= max; i++) {
+      const id = name + i;
+      container.insertAdjacentHTML('beforeend',
+        `<input type="radio" name="${name}" id="${id}" value="${i}" ${i === def ? 'checked' : ''}>` +
+        `<label for="${id}">${i === 0 ? '안 함' : i + '회'}</label>`);
+    }
+  }
+  buildChips($('weightChips'), 'wt', 7, 3);
+  buildChips($('cardioChips'), 'cd', 7, 1);
+
+  const GOALS = {
+    diet:     { name: '다이어트',  icon: '🔥', factor: 0.80, protein: 2.2, fatPct: 0.25 },
+    maintain: { name: '체중 유지', icon: '⚖️', factor: 1.00, protein: 1.8, fatPct: 0.25 },
+    lean:     { name: '린매스업',  icon: '💪', factor: 1.07, protein: 2.0, fatPct: 0.25 },
+    bulk:     { name: '벌크업',    icon: '🏋️', factor: 1.15, protein: 1.8, fatPct: 0.22 }
+  };
+  const ORDER = ['diet', 'maintain', 'lean', 'bulk'];
+  const COLORS = { carb: 'var(--carb)', protein: 'var(--protein)', fat: 'var(--fat)' };
+
+  const r10 = (n) => Math.round(n / 10) * 10;
+  const fmt = (n) => Math.round(n).toLocaleString('ko-KR');
+  const radio = (name) => document.querySelector(`input[name=${name}]:checked`).value;
+
+  let state = null;
+
+  function readInputs() {
+    const v = {
+      sex: radio('sex'),
+      age: parseFloat($('age').value),
+      height: parseFloat($('height').value),
+      weight: parseFloat($('weight').value),
+      bf: $('bf').value === '' ? null : parseFloat($('bf').value),
+      neat: parseFloat($('neat').value),
+      wt: parseInt(radio('wt'), 10),
+      cd: parseInt(radio('cd'), 10),
+      goal: radio('goal')
+    };
+    const bad = [];
+    if (!(v.age >= 14 && v.age <= 90)) bad.push('나이(14~90)');
+    if (!(v.height >= 120 && v.height <= 230)) bad.push('키(120~230cm)');
+    if (!(v.weight >= 30 && v.weight <= 250)) bad.push('체중(30~250kg)');
+    if (v.bf !== null && !(v.bf >= 3 && v.bf <= 60)) bad.push('체지방률(3~60%)');
+    return { v, bad };
+  }
+
+  function calcBase(v) {
+    let bmr, formula;
+    if (v.bf !== null) {
+      const lbm = v.weight * (1 - v.bf / 100);
+      bmr = 370 + 21.6 * lbm;
+      formula = 'Katch-McArdle (체지방률 반영)';
+    } else {
+      bmr = 10 * v.weight + 6.25 * v.height - 5 * v.age + (v.sex === 'male' ? 5 : -161);
+      formula = 'Mifflin-St Jeor';
+    }
+    // 일상활동 + 운동 (순수 운동 소모: MET-1 기준 근사)
+    const wtKcal = 3.5 * v.weight * 1.0;   // 웨이트 60분
+    const cdKcal = 6.0 * v.weight * (40 / 60); // 유산소 40분
+    const exercisePerDay = (v.wt * wtKcal + v.cd * cdKcal) / 7;
+    const tdee = bmr * v.neat + exercisePerDay;
+    const hm = v.height / 100;
+    const bmi = v.weight / (hm * hm);
+    return { bmr, tdee, bmi, formula, exercisePerDay };
+  }
+
+  function autoGoal(v, bmi) {
+    if (v.bf !== null) {
+      const highBf = v.sex === 'male' ? 20 : 30;
+      const lowBf = v.sex === 'male' ? 12 : 21;
+      if (v.bf >= highBf + 4) return { goal: 'diet', why: `체지방률 ${v.bf}%로 먼저 체지방을 줄이는 것이 효율적이에요.` };
+      if (v.bf <= lowBf) return { goal: v.wt >= 3 ? 'bulk' : 'lean', why: `체지방률 ${v.bf}%로 낮은 편이라 근육량을 늘리기 좋은 상태예요.` };
+      if (v.bf >= highBf) return { goal: 'diet', why: `체지방률 ${v.bf}%로 약간 높은 편이라 감량 후 증량을 추천해요.` };
+      return { goal: v.wt >= 3 ? 'lean' : 'maintain', why: `체지방률 ${v.bf}%로 적정 범위라 린매스업이 알맞아요.` };
+    }
+    if (bmi >= 25) return { goal: 'diet', why: `BMI ${bmi.toFixed(1)}로 과체중 범위라 체지방 감량을 먼저 추천해요.` };
+    if (bmi < 18.5) return { goal: 'bulk', why: `BMI ${bmi.toFixed(1)}로 저체중 범위라 체중·근육 증량을 추천해요.` };
+    if (v.wt >= 3) return { goal: 'lean', why: `BMI ${bmi.toFixed(1)}로 정상 범위이고 웨이트를 꾸준히 하고 있어 린매스업이 알맞아요.` };
+    return { goal: 'maintain', why: `BMI ${bmi.toFixed(1)}로 정상 범위예요. 웨이트 빈도를 먼저 늘린 뒤 증량·감량을 정해보세요.` };
+  }
+
+  function calcPlan(key, base, v) {
+    const g = GOALS[key];
+    let kcal = r10(base.tdee * g.factor);
+    let floored = false;
+    const floor = r10(Math.max(base.bmr, v.sex === 'male' ? 1500 : 1200));
+    if (key === 'diet' && kcal < floor) { kcal = floor; floored = true; }
+    const proteinG = Math.round(v.weight * g.protein);
+    let fatG = Math.round(Math.max(kcal * g.fatPct / 9, v.weight * 0.7));
+    let carbKcal = kcal - proteinG * 4 - fatG * 9;
+    if (carbKcal < 0) { fatG = Math.max(Math.round(v.weight * 0.6), Math.floor((kcal - proteinG * 4) / 9)); carbKcal = Math.max(0, kcal - proteinG * 4 - fatG * 9); }
+    const carbG = Math.round(carbKcal / 4);
+    const total = proteinG * 4 + fatG * 9 + carbG * 4 || 1;
+    const pct = {
+      carb: Math.round(carbG * 4 / total * 100),
+      protein: Math.round(proteinG * 4 / total * 100),
+    };
+    pct.fat = 100 - pct.carb - pct.protein;
+    const diff = kcal - r10(base.tdee);
+    const weekly = (kcal - base.tdee) * 7 / 7700; // kg/주
+    return { key, kcal, proteinG, fatG, carbG, pct, diff, weekly, floored };
+  }
+
+  function render() {
+    const { v } = readInputs();
+    const base = calcBase(v);
+    let goalKey = v.goal, autoWhy = null;
+    if (goalKey === 'auto') {
+      const a = autoGoal(v, base.bmi);
+      goalKey = a.goal; autoWhy = a.why;
+    }
+    state = state || {};
+    if (state.selected && state.fromClick) goalKey = state.selected;
+    state.selected = goalKey;
+
+    const plans = {};
+    ORDER.forEach(k => plans[k] = calcPlan(k, base, v));
+
+    // 기본 수치
+    $('rBmr').innerHTML = `${fmt(base.bmr)}<small> kcal</small>`;
+    $('rBmrDesc').textContent = base.formula;
+    $('rTdee').innerHTML = `${fmt(base.tdee)}<small> kcal</small>`;
+    $('rTdeeDesc').textContent = `운동 포함 하루 소모량 (운동 약 ${fmt(base.exercisePerDay)}kcal/일)`;
+    let bmiTxt = base.bmi < 18.5 ? '저체중' : base.bmi < 23 ? '정상' : base.bmi < 25 ? '과체중 전단계' : base.bmi < 30 ? '비만 1단계' : '비만 2단계';
+    $('rBmi').textContent = base.bmi.toFixed(1);
+    $('rBmiDesc').textContent = bmiTxt + (v.bf === null ? ' · 근육량이 많으면 실제보다 높게 나와요' : '');
+
+    // 플랜 카드
+    $('plans').innerHTML = ORDER.map(k => {
+      const p = plans[k], g = GOALS[k];
+      const sign = p.diff > 0 ? '+' : '';
+      const active = k === goalKey ? 'active' : '';
+      const badge = k === goalKey ? `<span class="badge">${v.goal === 'auto' && !state.fromClick ? '자동 추천' : '선택됨'}</span>` : '';
+      return `<button type="button" class="plan ${active}" data-k="${k}">
+        <div class="n"><span>${g.icon} ${g.name}</span>${badge}</div>
+        <div class="c">${fmt(p.kcal)}<small> kcal</small></div>
+        <div class="diff">유지 대비 ${p.diff === 0 ? '±0' : sign + fmt(p.diff)} kcal · ${p.diff === 0 ? '체중 변화 거의 없음' : `주당 약 ${p.weekly >= 0 ? '+' : ''}${p.weekly.toFixed(2)}kg`}</div>
+        <div class="mini"><span class="dot" style="background:${COLORS.carb}"></span>탄 ${p.carbG}g
+          <span class="dot" style="background:${COLORS.protein};margin-left:8px"></span>단 ${p.proteinG}g
+          <span class="dot" style="background:${COLORS.fat};margin-left:8px"></span>지 ${p.fatG}g</div>
+      </button>`;
+    }).join('');
+    document.querySelectorAll('.plan').forEach(b => b.addEventListener('click', () => {
+      state.selected = b.dataset.k; state.fromClick = true; render();
+    }));
+
+    const sel = plans[goalKey];
+    renderMacro(sel, GOALS[goalKey], v);
+    renderReco(sel, goalKey, v, base, autoWhy);
+  }
+
+  function renderMacro(p, g, v) {
+    $('macroTitle').textContent = `${g.icon} ${g.name} 탄단지`;
+    $('dKcal').textContent = fmt(p.kcal);
+    const c1 = p.pct.carb, c2 = c1 + p.pct.protein;
+    $('donut').style.background = `conic-gradient(${COLORS.carb} 0 ${c1}%, ${COLORS.protein} ${c1}% ${c2}%, ${COLORS.fat} ${c2}% 100%)`;
+    const rows = [
+      ['carb', '탄수화물', p.carbG, p.pct.carb, `체중 1kg당 ${(p.carbG / v.weight).toFixed(1)}g`],
+      ['protein', '단백질', p.proteinG, p.pct.protein, `체중 1kg당 ${(p.proteinG / v.weight).toFixed(1)}g`],
+      ['fat', '지방', p.fatG, p.pct.fat, `체중 1kg당 ${(p.fatG / v.weight).toFixed(1)}g`]
+    ];
+    $('macroList').innerHTML = rows.map(([k, n, gram, pct, sub]) => `
+      <div class="macro-row">
+        <div class="top"><span><span class="dot" style="background:${COLORS[k]}"></span><b>${n}</b></span><span><b>${gram}g</b> · ${pct}%</span></div>
+        <div class="bar"><i style="width:${pct}%;background:${COLORS[k]}"></i></div>
+        <div class="sub">${sub} · ${fmt(gram * (k === 'fat' ? 9 : 4))}kcal</div>
+      </div>`).join('');
+
+    const meals = [3, 4].map(n => {
+      const f = (x) => Math.round(x / n);
+      return `<tr><td>${n}끼로 나눈다면 (한 끼)</td><td>${fmt(p.kcal / n / 10 * 10)}kcal</td><td>탄 ${f(p.carbG)}g</td><td>단 ${f(p.proteinG)}g</td><td>지 ${f(p.fatG)}g</td></tr>`;
+    }).join('');
+    $('meals').innerHTML = `<tr><th></th><th>칼로리</th><th>탄수</th><th>단백질</th><th>지방</th></tr>${meals}`;
+  }
+
+  function splitFor(wt) {
+    if (wt === 0) return { cur: '현재 웨이트를 하지 않고 있어요.', rec: 3, text: '주 3회 전신 운동(스쿼트·벤치프레스·로우·오버헤드프레스 중심)부터 시작하세요.' };
+    if (wt <= 2) return { rec: 3, text: '현재 횟수는 최소 유지 수준이에요. 주 3회 전신 루틴으로 늘리면 성장 속도가 확실히 달라져요.' };
+    if (wt === 3) return { rec: 3, text: '주 3회 전신 루틴 또는 푸시/풀/레그 순환이 잘 맞아요. 각 근육을 주 2회 이상 자극하는 게 핵심이에요.' };
+    if (wt === 4) return { rec: 4, text: '상체/하체 2분할(주 4회)을 추천해요. 각 부위를 주 2회씩 자극할 수 있어요.' };
+    if (wt === 5) return { rec: 5, text: '푸시/풀/레그 + 상체/하체 조합(5분할)이 좋아요. 회복을 위해 휴식일 관리가 중요해요.' };
+    return { rec: wt, text: '푸시/풀/레그 2회전(6일)이 일반적이에요. 수면과 식사량이 부족하면 오히려 역효과이니 디로드 주를 4~6주마다 넣으세요.' };
+  }
+
+  function renderReco(p, key, v, base, autoWhy) {
+    const g = GOALS[key];
+    const split = splitFor(v.wt);
+
+    const diet = {
+      diet: [
+        `하루 ${fmt(p.kcal)}kcal로 유지 대비 ${fmt(-p.diff)}kcal 적게 먹어요. 주당 약 ${Math.abs(p.weekly).toFixed(2)}kg 감량 속도예요.`,
+        `단백질을 체중 1kg당 ${(p.proteinG / v.weight).toFixed(1)}g(${p.proteinG}g)으로 높게 유지해 근손실을 막으세요. 닭가슴살·계란·생선·두부·그릭요거트가 좋아요.`,
+        '탄수화물은 운동 전후에 몰아주면 훈련 퍼포먼스 유지에 유리해요. 정제당·음료 칼로리를 먼저 줄이세요.',
+        '체중은 매일 같은 조건(기상 후)에 재서 주간 평균으로 판단하고, 2주 이상 정체되면 100~150kcal를 더 줄이거나 걸음 수를 늘리세요.',
+        '8~12주 감량 후에는 1~2주 유지 칼로리로 올려 리프 피드(휴식기)를 가지면 좋아요.'
+      ],
+      maintain: [
+        `하루 ${fmt(p.kcal)}kcal 전후로 먹으면 체중이 유지돼요. 하루 단위가 아닌 주 평균으로 맞추세요.`,
+        `단백질 ${p.proteinG}g(체중 1kg당 ${(p.proteinG / v.weight).toFixed(1)}g)을 끼니마다 고르게 나눠 드세요.`,
+        '체성분 개선(리컴프)이 목표라면 웨이트 강도를 올리고 단백질을 꾸준히 채우는 게 가장 효과적이에요.',
+        '외식·주말 과식이 있다면 평일 칼로리를 약간 낮춰 주간 평균을 맞추세요.'
+      ],
+      lean: [
+        `하루 ${fmt(p.kcal)}kcal로 유지 대비 +${fmt(p.diff)}kcal(약 +7%) 소폭 잉여예요. 주당 약 +${p.weekly.toFixed(2)}kg이 이상적이에요.`,
+        `단백질 ${p.proteinG}g, 탄수화물 ${p.carbG}g으로 운동 퍼포먼스를 높이고, 탄수화물은 운동 전후에 집중하세요.`,
+        '한 달 체중 증가가 체중의 0.5~1% 이내인지 확인하세요. 그보다 빠르면 100~150kcal 줄이세요.',
+        '허리둘레가 빠르게 늘면 잉여 칼로리가 과한 신호예요. 사진/둘레를 2주마다 기록하세요.'
+      ],
+      bulk: [
+        `하루 ${fmt(p.kcal)}kcal로 유지 대비 +${fmt(p.diff)}kcal(약 +15%) 잉여예요. 주당 약 +${p.weekly.toFixed(2)}kg 증가 속도예요.`,
+        '식사량이 부담되면 쌀·면·감자·올리브유·견과류·우유 등 칼로리 밀도가 높은 식품과 식사 횟수를 늘리세요.',
+        `단백질 ${p.proteinG}g만 확실히 채우고, 나머지는 탄수화물로 에너지를 확보해 고중량 훈련을 뒷받침하세요.`,
+        '체중이 주당 체중의 0.5%를 넘게 늘면 체지방 비중이 커져요. 3~6개월 후 감량기로 전환 계획을 세우세요.'
+      ]
+    }[key];
+
+    const cardioRec = { diet: [3, 4], maintain: [2, 3], lean: [1, 2], bulk: [1, 2] }[key];
+    const cardioTxt = {
+      diet: '주 3~4회, 걷기·사이클·인클라인 워킹 30~45분(심박 60~70%)을 추천해요. 하루 8,000~10,000보 걷기를 함께 목표로 하세요.',
+      maintain: '주 2~3회, 20~40분 가볍게 해서 심폐 체력을 유지하세요.',
+      lean: '주 1~2회, 20~30분 가벼운 유산소로 회복과 심폐 건강만 챙기세요. 너무 많으면 증량 효과가 줄어요.',
+      bulk: '주 1~2회, 15~20분 정도만 하세요. 칼로리 소모를 최소화하고 일상 걸음 수 7,000보 정도만 유지하세요.'
+    }[key];
+    let cardioNote = '';
+    if (v.cd < cardioRec[0]) cardioNote = `현재 주 ${v.cd}회 → 권장 주 ${cardioRec[0]}~${cardioRec[1]}회로 늘려보세요.`;
+    else if (v.cd > cardioRec[1]) cardioNote = `현재 주 ${v.cd}회는 이 목표 기준으로 다소 많아요. 주 ${cardioRec[0]}~${cardioRec[1]}회로 줄이거나 그만큼 먹는 양을 늘려야 해요.`;
+    else cardioNote = `현재 주 ${v.cd}회는 이 목표에 적절해요. 👍`;
+
+    const trainTop = {
+      diet: '감량 중에도 웨이트 강도(무게)는 유지하는 게 핵심이에요. 볼륨이 부족해도 중량은 낮추지 마세요.',
+      maintain: '점진적 과부하(무게·반복수를 조금씩 늘리기)를 이어가면 몸이 계속 좋아져요.',
+      lean: '주요 복합운동(스쿼트·데드리프트·벤치·로우) 중심으로 매주 조금씩 기록을 갱신하세요.',
+      bulk: '6~12회 반복 중심의 중고중량 운동과 충분한 세트 수(부위당 주 10~20세트)가 좋아요.'
+    }[key];
+
+    const warnings = [];
+    if (p.floored) warnings.push('계산된 다이어트 칼로리가 너무 낮아 안전 하한선(기초대사량 수준)으로 조정했어요. 더 빠른 감량보다 기간을 늘리는 쪽을 추천해요.');
+    if (v.age < 19) warnings.push('성장기에는 극단적인 감량·증량보다 균형 잡힌 식사가 중요해요.');
+    if (key === 'diet' && base.bmi < 20) warnings.push('BMI가 낮은 편이라 감량보다는 체성분(근육량) 개선 목표가 더 알맞을 수 있어요.');
+    if (key === 'bulk' && base.bmi >= 27) warnings.push('BMI가 높은 편이라 벌크업보다 린매스업 또는 다이어트를 먼저 고려해 보세요.');
+
+    $('reco').innerHTML = `
+      ${autoWhy && state.selected === key && !state.fromClick ? `<div class="tag">🤖 자동 추천: ${g.name}</div><p style="margin:0 0 14px;font-size:14.5px">${autoWhy}</p>` : ''}
+      <h2 style="margin-bottom:6px">${g.icon} ${g.name} 맞춤 가이드</h2>
+      <h3>🍽️ 식단 방향</h3>
+      <ul>${diet.map(t => `<li>${t}</li>`).join('')}</ul>
+      <h3>🏋️ 웨이트 (현재 주 ${v.wt}회)</h3>
+      <ul><li>${split.text}</li><li>${trainTop}</li></ul>
+      <h3>🏃 유산소 (현재 주 ${v.cd}회)</h3>
+      <ul><li>${cardioTxt}</li><li>${cardioNote}</li></ul>
+      <h3>😴 회복</h3>
+      <ul><li>수면 7~9시간, 충분한 수분(체중 × 30~35ml)이 결과의 절반이에요.</li></ul>
+      ${warnings.map(w => `<div class="warn">⚠️ ${w}</div>`).join('')}`;
+  }
+
+  $('form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const { bad } = readInputs();
+    const err = $('err');
+    if (bad.length) {
+      err.style.display = 'block';
+      err.textContent = '다음 항목을 확인해주세요: ' + bad.join(', ');
+      return;
+    }
+    err.style.display = 'none';
+    state = {};
+    $('results').style.display = 'block';
+    render();
+    $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  // 결과가 보이는 상태에서 입력 변경 시 즉시 갱신
+  $('form').addEventListener('change', () => {
+    if ($('results').style.display !== 'block') return;
+    if (readInputs().bad.length) return;
+    state = {};
+    render();
+  });
+})();
+</script>
+</body>
+</html>
